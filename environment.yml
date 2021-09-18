@@ -1,0 +1,12 @@
+name: env-OCRT
+dependencies:
+  - pip
+  - ffmpeg
+  - python
+  - pip:
+    - numpy
+    - jupyter
+    - scipy
+    - opencv-python
+    - matplotlib
+    - tensorflow
