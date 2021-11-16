@@ -1,9 +1,12 @@
 
 import scipy.io
+from scipy import interpolate
+from scipy import signal
 import nibabel as nib
 import matplotlib.pyplot as plt
 import numpy as np
-import tensorflow as tf
+from skimage.transform import PiecewiseAffineTransform, warp
+from skimage import data
 
 # parametres
 # geometrie du tube en mm
@@ -34,10 +37,8 @@ filename = "data_test_oct_0degree.nii"
 image = nib.load(filename)
 data = image.get_fdata()
 b_scan = data[round(x_tube/pix_dim), :, :]
-print(b_scan.shape)
 plt.imshow(b_scan, cmap="gray", origin="lower")
 plt.show()
-
 
 # carte des indices de refraction (ri_map)
 def ri_map(n_x, n_y, pix_dim, n, centre=None, rayon_int=None, rayon_ext=None):
@@ -68,7 +69,7 @@ def rk4(ri_map):
     h = 2
     zi = 0
     fi = 0
-    for yi in range(1, 511, 50):
+    for yi in range(260, 511, 260):
         z_n = []
         y_n = []
         zi = 0
@@ -107,5 +108,39 @@ def rk4(ri_map):
 
 ri_map_init = ri_map(b_scan.shape[1], b_scan.shape[0], pix_dim, n, (z_tube, y_tube), r_capillaire_int, r_capillaire_ext)
 z_n, y_n = rk4(ri_map_init)
+y_n = np.array(y_n)
 plt.imshow(ri_map_init, cmap="gray")
+plt.show()
+
+
+img = b_scan
+print(img.shape)
+rows, cols = img.shape[0], img.shape[1]
+
+src_cols = np.linspace(0, cols, 20)
+src_rows = np.linspace(0, rows, 20)
+src_rows, src_cols = np.meshgrid(src_rows, src_cols)
+src = np.dstack([src_cols.flat, src_rows.flat])[0]
+
+# add sinusoidal oscillation to row coordinates
+y_n = signal.resample(y_n, src.shape[0])
+dst_rows = src[:, 1] - (y_n - y_n[0])
+dst_cols = src[:, 0]
+dst_rows *= 1.5
+dst_rows -= 1.5 * 50
+dst = np.vstack([dst_cols, dst_rows]).T
+
+
+tform = PiecewiseAffineTransform()
+tform.estimate(src, dst)
+
+out_rows = img.shape[0] - 1.5 * 50
+out_cols = cols
+out = warp(img, tform, output_shape=(out_rows, out_cols))
+print(out.shape)
+
+fig, ax = plt.subplots()
+ax.imshow(out)
+ax.plot(tform.inverse(src)[:, 0], tform.inverse(src)[:, 1], '.b')
+ax.axis((0, out_cols, out_rows, 0))
 plt.show()
