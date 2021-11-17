@@ -10,3 +10,4 @@ dependencies:
     - opencv-python
     - matplotlib
     - tensorflow
+    - scikit-image

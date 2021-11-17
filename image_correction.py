@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from skimage.transform import PiecewiseAffineTransform, warp
 from skimage import data
+import math
 
 # parametres
 # geometrie du tube en mm
@@ -40,6 +41,7 @@ b_scan = data[round(x_tube/pix_dim), :, :]
 plt.imshow(b_scan, cmap="gray", origin="lower")
 plt.show()
 
+
 # carte des indices de refraction (ri_map)
 def ri_map(n_x, n_y, pix_dim, n, centre=None, rayon_int=None, rayon_ext=None):
     x = np.linspace(0, n_x * pix_dim, n_x)
@@ -54,6 +56,16 @@ def ri_map(n_x, n_y, pix_dim, n, centre=None, rayon_int=None, rayon_ext=None):
     ri_map[masque_capillaire_int] = n["agarose"]
     return ri_map
 
+def nadaraya_watson(n_x, n_y, pix_dim, b_scan, pos=None, sig=1.1/320):
+    x = np.linspace(0, n_x * pix_dim, n_x)
+    y = np.linspace(0, n_y * pix_dim, n_y)
+    xv, yv = np.meshgrid(x, y)
+    one = np.ones((n_y, n_x))
+    n_inter = np.exp(-((xv - pos[0]*one) ** 2 - (yv - pos[1]*one) ** 2) * .5 / (sig*one) ** 2)
+    norm = np.sum(np.sum(n_inter, axis=0), axis=0)
+    n_A = np.sum(np.sum((b_scan * n_inter), axis=0), axis=0)
+    n = n_A/norm
+    return n
 
 def eq_rayon(z, y, f, ri_map):
     # equation differentiel a rentrer dans RK4
@@ -107,6 +119,8 @@ def rk4(ri_map):
     return z_n, y_n
 
 ri_map_init = ri_map(b_scan.shape[1], b_scan.shape[0], pix_dim, n, (z_tube, y_tube), r_capillaire_int, r_capillaire_ext)
+n = nadaraya_watson(b_scan.shape[1], b_scan.shape[0], pix_dim, b_scan, pos=[1, 1])
+print(n)
 z_n, y_n = rk4(ri_map_init)
 y_n = np.array(y_n)
 plt.imshow(ri_map_init, cmap="gray")
