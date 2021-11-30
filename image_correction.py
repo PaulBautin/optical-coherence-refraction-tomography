@@ -1,4 +1,17 @@
+# !/usr/bin/env python
+# -*- coding: utf-8
+#########################################################################################
+#
+# Corriger les distortions sur l'image du au changement d'indice de refraction
+#
+# ---------------------------------------------------------------------------------------
+# Authors: groupe oct
+#
+#########################################################################################
 
+
+import os
+import argparse
 import scipy.io
 from scipy import interpolate
 from scipy import signal
@@ -9,45 +22,68 @@ from skimage.transform import PiecewiseAffineTransform, warp
 from skimage import data
 import math
 
-# parametres
-# geometrie du tube en mm
-# fabricant:  Longueur : 75 mm. Diamètre intérieur : 1,1 à 1,2 mm. Paroi : 0,2 mm ± 0,02 mm
-d_int_tube = 1.1
-d_ext_tube = 1.3
-# pixel size in mm
-pix_dim = 1.1 / 160
-r_capillaire_ext = ((362 - 115)/2)
-r_capillaire_int = ((319 - 159)/2)
-z_tube = 115 + r_capillaire_ext
-x_tube = 260
-y_tube = 267
 
-# propriete optique
-n = {
-    "air": 1.000293,
-    "verre": 1.51,
-    "agarose": 1.34,
-}
+def get_parser():
+    """parser function"""
+    parser = argparse.ArgumentParser(
+        description="Correction de l'image par rapport au changment d'indice de refraction",
+        formatter_class=argparse.RawTextHelpFormatter,
+        prog=os.path.basename(__file__).strip(".py")
+    )
+
+    mandatory = parser.add_argument_group("\nMANDATORY ARGUMENTS")
+    mandatory.add_argument(
+        "-i",
+        required=True,
+        default='octr_data',
+        help='Path to folder that contains input images (e.g. "octr_data")',
+    )
+    optional = parser.add_argument_group("\nOPTIONAL ARGUMENTS")
+    optional.add_argument(
+        '-fig',
+        help='Generate figures',
+        action='store_true'
+    )
+    optional.add_argument(
+        '-o',
+        help='Path where figures will be saved. By default, they will be saved in the current directory.',
+        default=""
+    )
+    optional.add_argument(
+        '-l',
+        help='manually find borders of capillary',
+        action='store_true'
+    )
+    return parser
 
 
-
-#propriete image en pixels
-filename = "data_test_oct_0degree.nii"
-image = nib.load(filename)
-data = image.get_fdata()
-b_scan = data[x_tube, :, :]
-plt.imshow(b_scan, cmap="gray", origin="lower")
-plt.show()
-
-# carte des indices de refraction (ri_map)
-def ri_map(n_x, n_y, n, centre=None, rayon_int=None, rayon_ext=None):
-    x = np.linspace(0, n_x, n_x)
+def ri_map(n_z, n_y, n, centre=None, rayon_int=None, rayon_ext=None):
+    """ Creation de la carte des indices de refraction: "ri_map"  a partir d'un b_scan sur le plan 'zy'
+    (z: axe de propagation laser et y: axe perpenticulaire a l'axe de rotation du capilllaire)  avec indexage = 'ij'
+    (i = y indice de ligne y et j = z indice de colonne)
+    :param n_z: Nombre de colonne sur l'image.  Example: image.shape[1] = 576
+    :param n_y: Nombre de ligne sur l'image.  Example: image.shape[0] = 512
+    :param n: Dictionnaire contennant les indices de refraction des principales milieux
+    (air, verre, agarose). Example: n["verre"] = 1.51
+    :param centre: Tuple contennant position du centre du tube cordonne cartesienne 'xy'.  Example: (z_tube, y_tube) = ()
+    :param rayon_int: Rayon interieur du tube de verre
+    :param rayon_ext: Rayon exterieur du tube de verre
+    :return ri_map: carte des indices de refraction
+    """
+    # vecteur des coordonnees sur l'axe z (nombre de colonne)
+    z = np.linspace(0, n_z, n_z)
+    # vecteur des coordonnees sur l'axe y (nombre de ligne)
     y = np.linspace(0, n_y, n_y)
-    xv, yv = np.meshgrid(x, y)
-    dist_du_centre = np.sqrt((xv - centre[0])**2 + (yv - centre[1])**2)
+    # par defaut meshgrid utilise un indexage cartesien
+    zv, yv = np.meshgrid(z, y, sparse=False, indexing='xy')
+    # creation carte distance du centre
+    dist_du_centre = np.sqrt((zv - centre[0])**2 + (yv - centre[1])**2)
+    # masque de l'exterieur du tube capillaire
     masque_capillaire_ext = dist_du_centre <= rayon_ext
+    # masque de l'interieur du tube capillaire
     masque_capillaire_int = dist_du_centre <= rayon_int
-    ri_map = np.zeros([n_y, n_x])
+    # initialisation carte de d'indice de refraction indexage 'ij'
+    ri_map = np.zeros([n_y, n_z])
     ri_map[masque_capillaire_ext] = n["verre"]
     ri_map[~masque_capillaire_ext] = n["air"]
     ri_map[masque_capillaire_int] = n["agarose"]
@@ -95,25 +131,30 @@ def nadaraya_watson_index(value, object_map, pos=None, sig=0.5):
 def eq_rayon(z, y, f, ri_map):
     # equation differentiel a rentrer dans RK4
     #print("position {} et {}".format(z, y))
-    n, dndz, dndy = nadaraya_watson(ri_map_init, pos=[z, y])
+    n, dndz, dndy = nadaraya_watson(ri_map, pos=[z, y])
     dfdz = 1. / n * (dndy - dndz * f) * (1 + f ** 2)
     return dfdz
 
 
-def rk4(ri_map, b_scan, start):
+def rk4(ri_map):
     # programmation RK4 dydz(0)=0 y(0)=1
     n_y, n_z = ri_map.shape
-    object_map = np.zeros((n_y, n_z))
-    for yi in range(start[1], start[1]+401, 25):
-        start = [0, yi]
+    src_rows = []
+    src_cols = []
+    dst_rows = []
+    dst_cols = []
+    #object_map = np.zeros((n_y, n_z))
+    for yi in np.linspace(1, n_y-1, 10):
         fi = 0
-        n, _, _ = nadaraya_watson(ri_map, pos=start)
+        zi = 0
+        n, _, _ = nadaraya_watson(ri_map, pos=[zi, yi])
+        t0 = 1
         t = 1
         step = t / n
-        object_map[yi, 0] = b_scan[yi, 0]
-        zi = 0
-        z_n = []
-        y_n = []
+        t_i = [0]
+        y_i = [yi]
+        z_n = [0]
+        y_n = [yi]
         while (0 <= yi < n_y) & (0 <= zi < n_z) & (0 <= t < n_z-1):
             print("le code avance yi = {} zi = {}".format(yi, zi))
             l0 = step * eq_rayon(zi, yi, fi, ri_map)
@@ -140,52 +181,116 @@ def rk4(ri_map, b_scan, start):
             zi = zi + step
             yi = yi + (k0 + 2 * k1 + 2 * k2 + k3) / 6
             fi = fi + (l0 + 2 * l1 + 2 * l2 + l3) / 6
-            t = t + 1
+            t += t0
+            t_i.append(t)
+            y_i.append(y_n[0])
             z_n.append(zi)
             y_n.append(yi)
-            object_map = object_map + nadaraya_watson_index(b_scan[start[1], t], object_map, pos=[zi, yi], sig=1)
         # print("iteration = {}   ,  y = {}".format(zi, yi))
+        src_rows = src_rows + y_i
+        src_cols = src_cols + t_i
+        dst_rows = dst_rows + y_i
+        dst_cols = dst_cols + z_n
         plt.plot(z_n, y_n, "r")
-    print("sortie de la boucle {}".format(yi))
-    return object_map
-
-ri_map_init = ri_map(b_scan.shape[1], b_scan.shape[0], n, (z_tube, y_tube), r_capillaire_int, r_capillaire_ext)
-plt.imshow(ri_map_init, cmap="gray")
-plt.show()
-plt.imshow(ri_map_init, cmap="gray")
-object_map = rk4(ri_map_init, b_scan, start=[0, y_tube-200])
-plt.show()
-plt.imshow(object_map, cmap="gray")
-plt.show()
+        plt.plot(t_i, y_i, "b")
+    src = np.vstack([src_cols, src_rows]).T
+    dst = np.vstack([dst_cols, dst_rows]).T
+    return src, dst
 
 
-img = b_scan
-rows, cols = img.shape[0], img.shape[1]
-
-src_cols = np.linspace(0, cols, 20)
-src_rows = np.linspace(0, rows, 20)
-src_rows, src_cols = np.meshgrid(src_rows, src_cols)
-src = np.dstack([src_cols.flat, src_rows.flat])[0]
-
-# add sinusoidal oscillation to row coordinates
-y_n = signal.resample(y_n, src.shape[0])
-dst_rows = src[:, 1] - (y_n - y_n[0])
-dst_cols = src[:, 0]
-dst_rows *= 1.5
-dst_rows -= 1.5 * 50
-dst = np.vstack([dst_cols, dst_rows]).T
+def onclick(event):
+    global coords
+    coords = [event.xdata, event.ydata]
+    print('position interface, xdata={}, ydata={}'.format(event.xdata, event.ydata))
 
 
-tform = PiecewiseAffineTransform()
-tform.estimate(src, dst)
+def main():
+    """
+    main function, gather stats and call plots
+    """
+    # get parser elements
+    parser = get_parser()
+    arguments = parser.parse_args()
+    path_data = os.path.abspath(os.path.expanduser(arguments.i))
+    print("L'image est prise dans le fichier {}".format(path_data))
+    path_output = os.path.abspath(arguments.o)
 
-out_rows = img.shape[0] - 1.5 * 50
-out_cols = cols
-out = warp(img, tform, output_shape=(out_rows, out_cols))
+    # get image (z: axe de propagation laser, y: axe de rotation capillaire, x: axe perpendiculaire a la rotation capillaire)
+    filename = "data_test_oct_0degree.nii"
+    image = nib.load(os.path.join(path_data, filename))
+    nx, ny, nz = image.shape
+    print("Le format de l'image est (x:{}, y:{}, z:{})".format(nx, ny, nz))
+
+    # extraire un b_scan avec plan 'zy'
+    data = image.get_fdata()
+    x_tube = 260
+    b_scan = data[x_tube, :, :]
+
+    # geometrie du tube
+    # fabricant:  Longueur : 75 mm. Diamètre intérieur : 1,1 à 1,2 mm. Paroi : 0,2 mm ± 0,02 mm
+    if arguments.l:
+        coord_list = []
+        for i in range(4):
+            fig, ax = plt.subplots()
+            ax.imshow(b_scan, cmap="gray", origin="upper")
+            cid = fig.canvas.mpl_connect('button_press_event', onclick)
+            plt.show()
+            coord_list.append(coords)
+        # rayon exterieur capillaire
+        r_capillaire_ext = np.abs(((coord_list[0][0] - coord_list[3][0]) / 2))
+        # rayon a l'interieur capillaire
+        r_capillaire_int = np.abs(((coord_list[1][0] - coord_list[2][0]) / 2))
+        z_tube = coord_list[1][0] + r_capillaire_ext
+        y_tube = (coord_list[0][1] + coord_list[1][1] + coord_list[2][1] + coord_list[3][1]) / 4
+        print("le centre du tube est en (x: {}, y: {}) ".format(z_tube, y_tube))
+    else:
+        r_capillaire_ext = ((362 - 115)/2)
+        r_capillaire_int = ((319 - 159)/2)
+        z_tube = 115 + r_capillaire_ext
+        y_tube = 267
+
+    # propriete optique
+    n = {
+        "air": 1.000293,
+        "verre": 1.51,
+        "agarose": 1.34,
+    }
+
+    # plot le la carte des indices de refraction
+    ri_map_init = ri_map(nz, ny, n, (z_tube, y_tube), r_capillaire_int, r_capillaire_ext)
+    plt.imshow(ri_map_init, cmap="gray")
+    plt.show()
+
+    # tracer les rayons avec la fonction rk4
+    #src, dst = rk4(ri_map_init)
+    #plt.imshow(ri_map_init, cmap="gray")
+    #plt.show()
+
+    #np.save('source_coord', src)
+    #np.save('destination_coord', dst)
+
+    src = np.load('source_coord.npy')
+    dst = np.load('destination_coord.npy')
+
+    # plot l'image corrigee
+    # plt.imshow(object_map, cmap="gray")
+    # plt.show()
+    print(src)
+    print(dst.shape)
+
+    tform = PiecewiseAffineTransform()
+    tform.estimate(dst, src)
+
+    out_rows = b_scan.shape[0]
+    out_cols = b_scan.shape[1]
+    out = warp(b_scan, tform, output_shape=(out_rows, out_cols))
+
+    #fig, ax = plt.subplots()
+    plt.imshow(out)
+    #ax.plot(tform.inverse(src)[:, 0], tform.inverse(src)[:, 1], '.b')
+    #ax.axis((0, out_cols, out_rows, 0))
+    plt.show()
 
 
-fig, ax = plt.subplots()
-ax.imshow(out)
-ax.plot(tform.inverse(src)[:, 0], tform.inverse(src)[:, 1], '.b')
-ax.axis((0, out_cols, out_rows, 0))
-plt.show()
+if __name__ == "__main__":
+    main()
