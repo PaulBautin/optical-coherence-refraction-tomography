@@ -147,15 +147,15 @@ def rk4(ri_map):
     for yi in np.linspace(1, n_y-1, 10):
         fi = 0
         zi = 0
-        n, _, _ = nadaraya_watson(ri_map, pos=[zi, yi])
-        t0 = 1
-        t = 1
-        step = t / n
+        t0 = 5
+        t = 5
         t_i = [0]
         y_i = [yi]
         z_n = [0]
         y_n = [yi]
         while (0 <= yi < n_y) & (0 <= zi < n_z) & (0 <= t < n_z-1):
+            n, _, _ = nadaraya_watson(ri_map, pos=[zi, yi])
+            step = t0 / n
             print("le code avance yi = {} zi = {}".format(yi, zi))
             l0 = step * eq_rayon(zi, yi, fi, ri_map)
             k0 = fi
@@ -189,7 +189,7 @@ def rk4(ri_map):
         # print("iteration = {}   ,  y = {}".format(zi, yi))
         src_rows = src_rows + y_i
         src_cols = src_cols + t_i
-        dst_rows = dst_rows + y_i
+        dst_rows = dst_rows + y_n
         dst_cols = dst_cols + z_n
         plt.plot(z_n, y_n, "r")
         plt.plot(t_i, y_i, "b")
@@ -275,8 +275,8 @@ def main():
     # plot l'image corrigee
     # plt.imshow(object_map, cmap="gray")
     # plt.show()
-    print(src)
-    print(dst.shape)
+    #print(np.max(src - dst))
+    #print(dst.shape)
 
     tform = PiecewiseAffineTransform()
     tform.estimate(dst, src)
@@ -285,10 +285,10 @@ def main():
     out_cols = b_scan.shape[1]
     out = warp(b_scan, tform, output_shape=(out_rows, out_cols))
 
-    #fig, ax = plt.subplots()
-    plt.imshow(out)
+    fig, ax = plt.subplots()
+    ax.imshow(out)
     #ax.plot(tform.inverse(src)[:, 0], tform.inverse(src)[:, 1], '.b')
-    #ax.axis((0, out_cols, out_rows, 0))
+    ax.axis((0, out_cols, out_rows, 0))
     plt.show()
 
 
