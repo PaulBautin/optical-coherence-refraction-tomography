@@ -212,18 +212,19 @@ def main():
     parser = get_parser()
     arguments = parser.parse_args()
     path_data = os.path.abspath(os.path.expanduser(arguments.i))
-    print("L'image est prise dans le fichier {}".format(path_data))
     path_output = os.path.abspath(arguments.o)
 
     # get image (z: axe de propagation laser, y: axe de rotation capillaire, x: axe perpendiculaire a la rotation capillaire)
-    filename = "data_test_oct_0degree.nii"
-    image = nib.load(os.path.join(path_data, filename))
+    filename = "data_test_oct_2degree.nii"
+    path_image = os.path.join(path_data, filename)
+    print("L'image est prise dans le fichier {}".format(path_image))
+    image = nib.load(path_image)
     nx, ny, nz = image.shape
     print("Le format de l'image est (x:{}, y:{}, z:{})".format(nx, ny, nz))
 
     # extraire un b_scan avec plan 'zy'
     data = image.get_fdata()
-    x_tube = 260
+    x_tube = 356
     b_scan = data[x_tube, :, :]
 
     # geometrie du tube
@@ -262,15 +263,15 @@ def main():
     plt.show()
 
     # tracer les rayons avec la fonction rk4
-    #src, dst = rk4(ri_map_init)
-    #plt.imshow(ri_map_init, cmap="gray")
-    #plt.show()
+    src, dst = rk4(ri_map_init)
+    plt.imshow(ri_map_init, cmap="gray")
+    plt.show()
 
-    #np.save('source_coord', src)
-    #np.save('destination_coord', dst)
+    np.save('source_coord', src)
+    np.save('destination_coord', dst)
 
-    src = np.load('source_coord.npy')
-    dst = np.load('destination_coord.npy')
+    #src = np.load('source_coord.npy')
+    #dst = np.load('destination_coord.npy')
 
     # plot l'image corrigee
     # plt.imshow(object_map, cmap="gray")
