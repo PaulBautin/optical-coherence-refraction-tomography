@@ -40,9 +40,3 @@ conda env create -f environment.yml # Only do it once in order to create the env
 
 ## Execution
 Le code a ete execute avec python 3.6
-
-## Citation
-If you find our code and/or datasets useful to your research, please cite the following publication:
-
-Zhou, K. C., Qian, R., Degan, S., Farsiu, S., & Izatt, J. A. Optical coherence refraction tomography. *Nature Photonics*, 13(11), 794-802 (2019).
-
