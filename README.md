@@ -46,9 +46,11 @@ OPTIONAL ARGUMENTS:
   -l          manually find borders of capillary
 ```
 ## Livrables
-* Document de spécifications
+* Mandats :
+  [GBM8970_P5_OCTTomo](data/GBM8970_P5_OCTTomo.pdf)
+* Document de spécifications :
   [GBM8970-P5OCT.SpecFonc](data/GBM8970-P5OCT.SpecFonc.pdf)
-* Document de design
+* Document de design :
 [GBM8970-P5OCT.Design](data/GBM8970-P5OCT.Design.pdf)
 
 ## Description de l'algorithme
