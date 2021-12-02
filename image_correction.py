@@ -12,15 +12,10 @@
 
 import os
 import argparse
-import scipy.io
-from scipy import interpolate
-from scipy import signal
 import nibabel as nib
 import matplotlib.pyplot as plt
 import numpy as np
 from skimage.transform import PiecewiseAffineTransform, warp
-from skimage import data
-import math
 
 
 def get_parser():
@@ -36,7 +31,7 @@ def get_parser():
         "-i",
         required=True,
         default='octr_data',
-        help='Path to folder that contains input images (e.g. "octr_data")',
+        help='Path to folder that contains input images. Example: "octr_data"',
     )
     optional = parser.add_argument_group("\nOPTIONAL ARGUMENTS")
     optional.add_argument(
@@ -58,7 +53,8 @@ def get_parser():
 
 
 def ri_map(n_z, n_y, n, centre=None, rayon_int=None, rayon_ext=None):
-    """ Creation de la carte des indices de refraction: "ri_map"  a partir d'un b_scan sur le plan 'zy'
+    """
+    Creation de la carte des indices de refraction: "ri_map"  a partir d'un b_scan sur le plan 'zy'
     (z: axe de propagation laser et y: axe perpenticulaire a l'axe de rotation du capilllaire)  avec indexage = 'ij'
     (i = y indice de ligne y et j = z indice de colonne)
     :param n_z: Nombre de colonne sur l'image.  Example: image.shape[1] = 576
@@ -89,7 +85,47 @@ def ri_map(n_z, n_y, n, centre=None, rayon_int=None, rayon_ext=None):
     ri_map[masque_capillaire_int] = n["agarose"]
     return ri_map
 
+
+def geo_tube_onclick(b_scan):
+    """
+    Permet de positionner les interface du capillaire sur l'image en cliquant dessus. Il faut que l'image soit fermee
+    a chaque click sinon les cordonnees de l'interface ne seront pas enregistrer
+    :param b_scan: slice de l'image que l'utilisateur veut corriger
+    :return r_capillaire_ext: rayon exterieur du capillaire
+    :return r_capillaire_int: rayon interieur du capillaire
+    :return z_tube: position du centre du tube sur l'axe z
+    :return y_tube: position du centre du tube sur l'axe y
+    """
+    coord_list = []
+    for i in range(4):
+        fig, ax = plt.subplots()
+        ax.imshow(b_scan, cmap="gray", origin="upper")
+        cid = fig.canvas.mpl_connect('button_press_event', onclick)
+        plt.show()
+        coord_list.append(coords)
+    # rayon exterieur capillaire
+    r_capillaire_ext = np.abs(((coord_list[0][0] - coord_list[3][0]) / 2))
+    # rayon a l'interieur capillaire
+    r_capillaire_int = np.abs(((coord_list[1][0] - coord_list[2][0]) / 2))
+    z_tube = coord_list[1][0] + r_capillaire_ext
+    y_tube = (coord_list[0][1] + coord_list[1][1] + coord_list[2][1] + coord_list[3][1]) / 4
+    print("le centre du tube est en (x: {}, y: {}) ".format(z_tube, y_tube))
+    return r_capillaire_ext, r_capillaire_int, z_tube, y_tube
+
 def nadaraya_watson(ri_map, pos=None, sig=1):
+    """
+    L'estimateur de Nadaraya-Watson est une méthode d’estimation par noyau qui permet d’estimer l’indice de
+    réfraction en tout point de l’image i.e. a des position avec de indices flottant.
+    pour lire plus sur l'estimateur de Nadaraya Watson: https://en.wikipedia.org/wiki/Kernel_regression
+    :param ri_map: carte des indices de refraction
+    :param pos: position dans la carte des indices de rerfaction. Example: (z_pos, y_pos)
+    :param sig: ecart type de la fonction gaussienne (fenetre des noyaux gaussiens)
+    :return n: indice de refraction a la position pos
+    :return dndz: derivee de l'indice de refraction selon z
+    :return dndy: derivee de l'indicce de refraction selon y
+    """
+    # creation carte des indices et atribution du poids de chaque kernel en fonction de l'indice de refraction
+    # et distance au points d'interet.
     n_z = ri_map.shape[1]
     n_y = ri_map.shape[0]
     z = np.linspace(0, n_z, n_z)
@@ -99,56 +135,64 @@ def nadaraya_watson(ri_map, pos=None, sig=1):
     g_kernels = np.exp(-((zv - pos[0]*one) ** 2 + (yv - pos[1]*one) ** 2) / (2 * (sig*one)**2))
     norm = np.sum(g_kernels, axis=(0, 1))
     n_A = np.sum((ri_map * g_kernels), axis=(0, 1))
+    # indice de refraction en la position d'interet
+    n = n_A / norm
 
+    # calcul analytique des derivees
+    # calcul analytique de la derive du numerateur en z et y a la position d'interet
     dn_Adz = ri_map * g_kernels * (zv - pos[0]*one) / sig ** 2
     dn_Ady = ri_map * g_kernels * (yv - pos[1]*one) / sig ** 2
     dn_Adz = np.sum(dn_Adz, axis=(0, 1))
     dn_Ady = np.sum(dn_Ady, axis=(0, 1))
-
-
+    # calcul analytique de la derive du denominateur en z et y a la position d'interet
     dnormdz = g_kernels * (zv - pos[0]*one) / sig ** 2
     dnormdy = g_kernels * (yv - pos[1]*one) / sig ** 2
     dnormdz = np.sum(dnormdz, axis=(0, 1))
     dnormdy = np.sum(dnormdy, axis=(0, 1))
-
-    n = n_A / norm
+    # formule de derive d'une fraction
     dndz = (norm * dn_Adz - n_A * dnormdz) / norm ** 2
     dndy = (norm * dn_Ady - n_A * dnormdy) / norm ** 2
     return n, dndz, dndy
 
-def nadaraya_watson_index(value, object_map, pos=None, sig=0.5):
-    n_z = object_map.shape[1]
-    n_y = object_map.shape[0]
-    z = np.linspace(0, n_z, n_z)
-    y = np.linspace(0, n_y, n_y)
-    zv, yv = np.meshgrid(z, y)
-    one = np.ones((n_y, n_z))
-    object = one * value
-    g_kernels = np.exp(-((zv - pos[0]*one) ** 2 + (yv - pos[1]*one) ** 2) / (2 * (sig*one)**2))
-    object = object * g_kernels
-    return object
 
 def eq_rayon(z, y, f, ri_map):
+    """
+    equation differentielle resolue avec la methode RK4
+    :param z: position du rayon sur l'axe z (z: axe propagation rayon)
+    :param y: position du rayon sur l'axe y (z: axe perpendiculaire a la propagation rayon)
+    :param f: parametre servant a resoudre RK4 d'une equation diff du second degree
+    :param ri_map: carte des indices de refraction
+    :return: dfdz = d^2y/dz^2
+    """
     # equation differentiel a rentrer dans RK4
-    #print("position {} et {}".format(z, y))
     n, dndz, dndy = nadaraya_watson(ri_map, pos=[z, y])
     dfdz = 1. / n * (dndy - dndz * f) * (1 + f ** 2)
     return dfdz
 
 
 def rk4(ri_map):
-    # programmation RK4 dydz(0)=0 y(0)=1
+    """
+    Fonction permettant la resolution numerique de la propagation des rayons optiques dans un milieux avec
+    des indices de refractions non-homogene. La resolution numerique est basee sur la methode de Runge-Kutta
+    d'ordre 4. Les condition au frontiere sont: dydz(0)=0, z=0 . Chaque pas de rayons est divise par l'indice
+    de refraction du milieux.
+    :param ri_map: carte des indices de refraction
+    :return src: liste des indices positionnelles des rayons sans changement d'indice de refraction
+    (Coordonnees de l'image source)
+    :return dst: liste des indices positionelles des rayons dans un milieux d'indice de refraction non homogeme
+    (Coordonnees de l'image destination)
+    """
+    # programmation RK4
     n_y, n_z = ri_map.shape
     src_rows = []
     src_cols = []
     dst_rows = []
     dst_cols = []
-    #object_map = np.zeros((n_y, n_z))
-    for yi in np.linspace(1, n_y-1, 10):
+    for yi in np.linspace(1, n_y-1, 7):
         fi = 0
         zi = 0
-        t0 = 5
-        t = 5
+        t0 = 10
+        t = 10
         t_i = [0]
         y_i = [yi]
         z_n = [0]
@@ -199,6 +243,11 @@ def rk4(ri_map):
 
 
 def onclick(event):
+    """
+    Fonction permettant de positionner les interfaces du capillaire avec un clic de la souris
+    :param event:
+    :return:
+    """
     global coords
     coords = [event.xdata, event.ydata]
     print('position interface, xdata={}, ydata={}'.format(event.xdata, event.ydata))
@@ -206,7 +255,7 @@ def onclick(event):
 
 def main():
     """
-    main function, gather stats and call plots
+    Fonction main,
     """
     # get parser elements
     parser = get_parser()
@@ -214,8 +263,9 @@ def main():
     path_data = os.path.abspath(os.path.expanduser(arguments.i))
     path_output = os.path.abspath(arguments.o)
 
-    # get image (z: axe de propagation laser, y: axe de rotation capillaire, x: axe perpendiculaire a la rotation capillaire)
-    filename = "data_test_oct_2degree.nii"
+    # get image (z: axe de propagation laser, y: axe de rotation capillaire, x: axe perpendiculaire
+    # a la rotation capillaire)
+    filename = "data_test_oct_1degree.nii"
     path_image = os.path.join(path_data, filename)
     print("L'image est prise dans le fichier {}".format(path_image))
     image = nib.load(path_image)
@@ -224,40 +274,27 @@ def main():
 
     # extraire un b_scan avec plan 'zy'
     data = image.get_fdata()
-    x_tube = 356
-    b_scan = data[x_tube, :, :]
+    x_tube = 310
+    b_scan = data[:, x_tube, :]
 
-    # geometrie du tube
-    # fabricant:  Longueur : 75 mm. Diamètre intérieur : 1,1 à 1,2 mm. Paroi : 0,2 mm ± 0,02 mm
+    # creation de la carte des indices de refraction a partir de la geometrie du tube
+    # geometrie tube fabricant:  Longueur : 75 mm. Diamètre intérieur : 1,1 à 1,2 mm. Paroi : 0,2 mm ± 0,02 mm
+    # argument.l sert a rentrer la position des interfaces avec un click de la souris
     if arguments.l:
-        coord_list = []
-        for i in range(4):
-            fig, ax = plt.subplots()
-            ax.imshow(b_scan, cmap="gray", origin="upper")
-            cid = fig.canvas.mpl_connect('button_press_event', onclick)
-            plt.show()
-            coord_list.append(coords)
-        # rayon exterieur capillaire
-        r_capillaire_ext = np.abs(((coord_list[0][0] - coord_list[3][0]) / 2))
-        # rayon a l'interieur capillaire
-        r_capillaire_int = np.abs(((coord_list[1][0] - coord_list[2][0]) / 2))
-        z_tube = coord_list[1][0] + r_capillaire_ext
-        y_tube = (coord_list[0][1] + coord_list[1][1] + coord_list[2][1] + coord_list[3][1]) / 4
-        print("le centre du tube est en (x: {}, y: {}) ".format(z_tube, y_tube))
+        r_capillaire_ext, r_capillaire_int, z_tube, y_tube = geo_tube_onclick(b_scan)
+    # sinon les coordonnees seront rentree manuellement ci-dessous
     else:
         r_capillaire_ext = ((362 - 115)/2)
         r_capillaire_int = ((319 - 159)/2)
         z_tube = 115 + r_capillaire_ext
         y_tube = 267
-
     # propriete optique
     n = {
         "air": 1.000293,
         "verre": 1.51,
         "agarose": 1.34,
     }
-
-    # plot le la carte des indices de refraction
+    # creation de la carte des indices de refraction et affichage
     ri_map_init = ri_map(nz, ny, n, (z_tube, y_tube), r_capillaire_int, r_capillaire_ext)
     plt.imshow(ri_map_init, cmap="gray")
     plt.show()
@@ -266,30 +303,29 @@ def main():
     src, dst = rk4(ri_map_init)
     plt.imshow(ri_map_init, cmap="gray")
     plt.show()
-
-    np.save('source_coord', src)
-    np.save('destination_coord', dst)
-
+    # np.save permet de sauver la liste des coordonnes de chaque rayon
+    #np.save('source_coord', src)
+    #np.save('destination_coord', dst)
     #src = np.load('source_coord.npy')
     #dst = np.load('destination_coord.npy')
 
-    # plot l'image corrigee
-    # plt.imshow(object_map, cmap="gray")
-    # plt.show()
-    #print(np.max(src - dst))
-    #print(dst.shape)
-
+    # "Control points are used to define the mapping. The transform is based on a Delaunay triangulation
+    # of the points to form a mesh. Each triangle is used to find a local affine transform"
+    # https://scikit-image.org/docs/dev/api/skimage.transform.html?highlight=transform#skimage.transform.PiecewiseAffineTransform
     tform = PiecewiseAffineTransform()
     tform.estimate(dst, src)
-
+    # warp b_scan to new coordinates
     out_rows = b_scan.shape[0]
     out_cols = b_scan.shape[1]
     out = warp(b_scan, tform, output_shape=(out_rows, out_cols))
-
+    # plot reconstructed b_scan
     fig, ax = plt.subplots()
     ax.imshow(out)
     #ax.plot(tform.inverse(src)[:, 0], tform.inverse(src)[:, 1], '.b')
     ax.axis((0, out_cols, out_rows, 0))
+    if arguments.o is not None:
+        filename_out = os.path.splitext(os.path.basename(filename))[0] + '_recon.png'
+        plt.savefig(os.path.join(path_output, filename_out))
     plt.show()
 
 
