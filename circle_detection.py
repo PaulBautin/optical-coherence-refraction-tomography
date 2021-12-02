@@ -1,3 +1,16 @@
+# !/usr/bin/env python
+# -*- coding: utf-8
+#########################################################################################
+#
+# Trouver le centre du capillaire grace a la transformee de hough circulaire
+# https://scikit-image.org/docs/stable/auto_examples/edges/plot_circular_elliptical_hough_transform.html
+#
+# ---------------------------------------------------------------------------------------
+# Authors: groupe oct
+#
+#########################################################################################
+
+
 import numpy as np
 import matplotlib.pyplot as plt
 from skimage.transform import hough_circle, hough_circle_peaks
@@ -13,7 +26,7 @@ b_scan = data[x_tube, :, :]
 print("la detection de la frontiere circulaire peu prendre du temps...")
 
 # Load picture and detect edges
-edges = canny(b_scan, sigma=2) #, low_threshold=50, high_threshold=100)
+edges = canny(b_scan, sigma=2, low_threshold=50, high_threshold=100)
 plt.imshow(edges, cmap="gray", origin="lower")
 plt.show()
 
@@ -25,7 +38,6 @@ hough_res = hough_circle(edges, hough_radii)
 accums, cx, cy, radii = hough_circle_peaks(hough_res, hough_radii,
                                            total_num_peaks=1)
 print("Centre du cercle sur l'axe x: {} et sur l'axe y: {}".format(cx, cy))
-
 
 # Draw circle
 plt.imshow(b_scan, cmap="gray", origin="lower")
