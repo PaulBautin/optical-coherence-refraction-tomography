@@ -20,12 +20,6 @@ setup(
     python_requires='>=3.6',
     description='Reproduction de la méthode OCRT pour le projet intégrateur de génie biomédical (GBM8970), Polytechnique Montréal.',
     author='groupe OCT, Polytechnique Montreal',
-    license='MIT',
-    classifiers=[
-        'Development Status :: 3 - Alpha',
-        'License :: OSI Approved :: MIT License',
-        'Programming Language :: Python :: 3.9',
-    ],
     keywords='',
     install_requires=install_reqs,
     entry_points={
