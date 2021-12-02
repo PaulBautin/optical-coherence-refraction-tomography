@@ -55,30 +55,30 @@ def get_parser():
 def ri_map(n_z, n_y, n, centre=None, rayon_int=None, rayon_ext=None):
     """
     Creation de la carte des indices de refraction: "ri_map"  a partir d'un b_scan sur le plan 'zy'
-    (z: axe de propagation laser et y: axe perpenticulaire a l'axe de rotation du capilllaire)  avec indexage = 'ij'
+    (z: axe de propagation laser et y: axe perpendiculaire a l'axe de rotation du capillaire)  avec indexage = 'ij'
     (i = y indice de ligne y et j = z indice de colonne)
     :param n_z: Nombre de colonne sur l'image.  Example: image.shape[1] = 576
     :param n_y: Nombre de ligne sur l'image.  Example: image.shape[0] = 512
-    :param n: Dictionnaire contennant les indices de refraction des principales milieux
+    :param n: Dictionnaire contenant les indices de refraction des principales milieux
     (air, verre, agarose). Example: n["verre"] = 1.51
-    :param centre: Tuple contennant position du centre du tube cordonne cartesienne 'xy'.  Example: (z_tube, y_tube) = ()
-    :param rayon_int: Rayon interieur du tube de verre
-    :param rayon_ext: Rayon exterieur du tube de verre
+    :param centre: Tuple contenant position du centre du tube en cordonne cartésiennes 'xy'.  Example: (z_tube, y_tube) = ()
+    :param rayon_int: Rayon intérieur du tube de verre
+    :param rayon_ext: Rayon extérieur du tube de verre
     :return ri_map: carte des indices de refraction
     """
-    # vecteur des coordonnees sur l'axe z (nombre de colonne)
+    # vecteur des coordonnées sur l'axe z (nombre de colonne)
     z = np.linspace(0, n_z, n_z)
-    # vecteur des coordonnees sur l'axe y (nombre de ligne)
+    # vecteur des coordonnées sur l'axe y (nombre de ligne)
     y = np.linspace(0, n_y, n_y)
-    # par defaut meshgrid utilise un indexage cartesien
+    # par defaut meshgrid utilise un indexage cartésien
     zv, yv = np.meshgrid(z, y, sparse=False, indexing='xy')
     # creation carte distance du centre
     dist_du_centre = np.sqrt((zv - centre[0])**2 + (yv - centre[1])**2)
-    # masque de l'exterieur du tube capillaire
+    # masque de l'extérieur du tube capillaire
     masque_capillaire_ext = dist_du_centre <= rayon_ext
-    # masque de l'interieur du tube capillaire
+    # masque de l'intérieur du tube capillaire
     masque_capillaire_int = dist_du_centre <= rayon_int
-    # initialisation carte de d'indice de refraction indexage 'ij'
+    # initialisation de la carte d'indice de refraction indexage 'ij'
     ri_map = np.zeros([n_y, n_z])
     ri_map[masque_capillaire_ext] = n["verre"]
     ri_map[~masque_capillaire_ext] = n["air"]
@@ -89,10 +89,10 @@ def ri_map(n_z, n_y, n, centre=None, rayon_int=None, rayon_ext=None):
 def geo_tube_onclick(b_scan):
     """
     Permet de positionner les interface du capillaire sur l'image en cliquant dessus. Il faut que l'image soit fermee
-    a chaque click sinon les cordonnees de l'interface ne seront pas enregistrer
+    a chaque click sinon les cordonnées de l'interface ne seront pas enregistrer
     :param b_scan: slice de l'image que l'utilisateur veut corriger
-    :return r_capillaire_ext: rayon exterieur du capillaire
-    :return r_capillaire_int: rayon interieur du capillaire
+    :return r_capillaire_ext: rayon extérieur du capillaire
+    :return r_capillaire_int: rayon intérieur du capillaire
     :return z_tube: position du centre du tube sur l'axe z
     :return y_tube: position du centre du tube sur l'axe y
     """
@@ -103,7 +103,7 @@ def geo_tube_onclick(b_scan):
         cid = fig.canvas.mpl_connect('button_press_event', onclick)
         plt.show()
         coord_list.append(coords)
-    # rayon exterieur capillaire
+    # rayon extérieur capillaire
     r_capillaire_ext = np.abs(((coord_list[0][0] - coord_list[3][0]) / 2))
     # rayon a l'interieur capillaire
     r_capillaire_int = np.abs(((coord_list[1][0] - coord_list[2][0]) / 2))
@@ -119,12 +119,12 @@ def nadaraya_watson(ri_map, pos=None, sig=1):
     pour lire plus sur l'estimateur de Nadaraya Watson: https://en.wikipedia.org/wiki/Kernel_regression
     :param ri_map: carte des indices de refraction
     :param pos: position dans la carte des indices de rerfaction. Example: (z_pos, y_pos)
-    :param sig: ecart type de la fonction gaussienne (fenetre des noyaux gaussiens)
+    :param sig: ecart type de la fonction gaussienne (fenêtre des noyaux gaussiens)
     :return n: indice de refraction a la position pos
     :return dndz: derivee de l'indice de refraction selon z
     :return dndy: derivee de l'indicce de refraction selon y
     """
-    # creation carte des indices et atribution du poids de chaque kernel en fonction de l'indice de refraction
+    # creation carte des indices et attribution du poids de chaque kernel en fonction de l'indice de refraction
     # et distance au points d'interet.
     n_z = ri_map.shape[1]
     n_y = ri_map.shape[0]
@@ -139,7 +139,7 @@ def nadaraya_watson(ri_map, pos=None, sig=1):
     n = n_A / norm
 
     # calcul analytique des derivees
-    # calcul analytique de la derive du numerateur en z et y a la position d'interet
+    # calcul analytique de la derive du numérateur en z et y a la position d'interet
     dn_Adz = ri_map * g_kernels * (zv - pos[0]*one) / sig ** 2
     dn_Ady = ri_map * g_kernels * (yv - pos[1]*one) / sig ** 2
     dn_Adz = np.sum(dn_Adz, axis=(0, 1))
@@ -160,11 +160,11 @@ def eq_rayon(z, y, f, ri_map):
     equation differentielle resolue avec la methode RK4
     :param z: position du rayon sur l'axe z (z: axe propagation rayon)
     :param y: position du rayon sur l'axe y (z: axe perpendiculaire a la propagation rayon)
-    :param f: parametre servant a resoudre RK4 d'une equation diff du second degree
+    :param f: paramètre servant a résoudre RK4 d'une equation diff du second degree
     :param ri_map: carte des indices de refraction
     :return: dfdz = d^2y/dz^2
     """
-    # equation differentiel a rentrer dans RK4
+    # equation differentielle a rentrer dans RK4
     n, dndz, dndy = nadaraya_watson(ri_map, pos=[z, y])
     dfdz = 1. / n * (dndy - dndz * f) * (1 + f ** 2)
     return dfdz
