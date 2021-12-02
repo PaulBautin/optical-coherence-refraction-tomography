@@ -10,7 +10,7 @@ Les images sont trop volumineuses pour être directement téléchargées sur Git
 
 ## Comment débuter
 1) Si ce n'est pas deja fait installez [miniconda](https://docs.conda.io/en/latest/miniconda.html) ou conda sur votre ordinateur
-2) Ouvrir miniconda prompt et cloner le dépôt GitHub dans le dossier de votre choix :
+2) Ouvrir Anaconda Prompt et cloner le dépôt GitHub dans le dossier de votre choix :
 ```bash
 git clone https://github.com/PaulBautin/optical-coherence-refraction-tomography.git ocrt
 cd ocrt
