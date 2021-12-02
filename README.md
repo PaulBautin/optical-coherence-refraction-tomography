@@ -5,9 +5,6 @@
 * **Nature Supplementary Materials**: [PDF](https://static-content.springer.com/esm/art%3A10.1038%2Fs41566-019-0508-1/MediaObjects/41566_2019_508_MOESM1_ESM.pdf)
 * **Code original**: https://github.com/kevinczhou/optical-coherence-refraction-tomography
 
-## Description algorithme
-![alt text](data/description_algorithme.PNG)
-
 ## Data
 Les images sont trop grosses pour etre directement telecharger sur Github (limite > 100Mb)
 
@@ -48,3 +45,5 @@ OPTIONAL ARGUMENTS:
   -o O        Path where figures will be saved. By default, they will be saved in the current directory.
   -l          manually find borders of capillary
 ```
+## Description algorithme
+![alt text](data/description_algorithme.PNG)
