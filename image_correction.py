@@ -21,7 +21,7 @@ from skimage.transform import PiecewiseAffineTransform, warp
 def get_parser():
     """parser function"""
     parser = argparse.ArgumentParser(
-        description="Correction de l'image par rapport au changment d'indice de refraction",
+        description="Algorithme de correction des distorsions liées aux changements d'indices de réfractions.",
         formatter_class=argparse.RawTextHelpFormatter,
         prog=os.path.basename(__file__).strip(".py")
     )
