@@ -39,4 +39,20 @@ conda env create -f environment.yml # Only do it once in order to create the env
 **Make sure that you have the last version of the files by pulling the repo before every new lab** (`git pull`).
 
 ## Execution
-Le code a ete execute avec python 3.6
+Le code a ete execute avec python 3.6. Voici les informations importantes pour faire tourner le script principal *image_correction.py*
+```bash
+usage: image_correction [-h] -i I [-fig] [-o O] [-l]
+
+Algorithme de correction des distorsions liées aux changements d'indices de réfractions.
+
+optional arguments:
+  -h, --help  show this help message and exit
+
+MANDATORY ARGUMENTS:
+  -i I        Path to folder that contains input images. Example: "octr_data"
+
+OPTIONAL ARGUMENTS:
+  -fig        Generate figures
+  -o O        Path where figures will be saved. By default, they will be saved in the current directory.
+  -l          manually find borders of capillary
+```
