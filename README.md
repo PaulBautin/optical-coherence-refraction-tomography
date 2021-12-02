@@ -9,21 +9,20 @@
 Les images sont trop volumineuses pour être directement téléchargées sur Github (limite > 100 Mo)
 
 ## Comment débuter
-1) Cloner le dépôt GitHub sur votre ordinateur :
+1) Si ce n'est pas deja fait installez [miniconda](https://docs.conda.io/en/latest/miniconda.html) ou conda sur votre ordinateur
+2) Ouvrir miniconda prompt et cloner le dépôt GitHub dans le dossier de votre choix :
 ```bash
-git clone https://github.com/PaulBautin/optical-coherence-refraction-tomography.git
-cd optical-coherence-refraction-tomography
+git clone https://github.com/PaulBautin/optical-coherence-refraction-tomography.git ocrt
+cd ocrt
 ```
-- Les utilisateurs Windows, auront probablement besoin d'[installer git](https://git-scm.com/downloads) avant de cloner le dépôt.
+- Les utilisateurs Windows, auront probablement besoin d'installer git avant de cloner le dépôt avec la commande : `conda install -c anaconda git`
 
-2) Exécutez la commande suivante pour créer votre environment virtuel :
+3) Exécutez la commande suivante pour installer les packages nécessaires :
 
 ```bash
-conda env create -f environment.yml # Only do it once in order to create the environment (might take a few minutes)
+pip install -e . # Ne faire cette étape qu'une seule fois (peut prendre quelques minutes)
 ```
-
-- Assurez-vous d'etre dans le dossier `optical-coherence-refraction-tomography` lorsque vous appelez le fichier : `environment.yml`
-- Les utilisateurs Windows, auront peut-être besoin d'exécuter la commande ci-dessus dans `Anaconda Prompt` si `cmd` ne reconnait pas `conda`.
+- Assurez-vous d'etre dans le dossier `ocrt` lorsque vous exécutez la commande ci-dessus.
 
 **Pour être sûr que vous avez toujours la dernière version des fichiers, assurez-vous de toujours lancer la commande (`git pull`) avant chaque utilisation.
 

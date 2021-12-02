@@ -20,6 +20,7 @@ setup(
     python_requires='>=3.6',
     description='Reproduction de la méthode OCRT pour le projet intégrateur de génie biomédical (GBM8970), Polytechnique Montréal.',
     author='groupe OCT, Polytechnique Montreal',
+    url='https://github.com/PaulBautin/optical-coherence-refraction-tomography',
     keywords='',
     install_requires=install_reqs,
     entry_points={
