@@ -1,12 +1,12 @@
 # Optical coherence refraction tomography
 
-*Reproduction de la methode OCRT pour le projet de 4ᵉ année de baccalauréat : GBM8970 - Projet intégrateur de génie biomédical. Polytechnique Montréal.*
+*Reproduction de la méthode OCRT pour le projet de 4ᵉ année de baccalauréat : GBM8970 - Projet intégrateur de génie biomédical. Polytechnique Montréal.*
 * **Papier original** : https://www.nature.com/articles/s41566-019-0508-1
 * **Nature Supplementary Materials** : [PDF](https://static-content.springer.com/esm/art%3A10.1038%2Fs41566-019-0508-1/MediaObjects/41566_2019_508_MOESM1_ESM.pdf)
 * **Code original** : https://github.com/kevinczhou/optical-coherence-refraction-tomography
 
 ## Data
-Les images sont trop grosses pour être directement téléchargées sur Github (limite > 100 Mo)
+Les images sont trop volumineuses pour être directement téléchargées sur Github (limite > 100 Mo)
 
 ## Comment débuter
 1) Cloner le dépôt GitHub sur votre ordinateur :
