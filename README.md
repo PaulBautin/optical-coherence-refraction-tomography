@@ -9,15 +9,7 @@
 ![alt text](data/description_algorithme.PNG)
 
 ## Data
-Les images de test peuvent etre trouve dans le dossier: "/data"
-## Code
-The code depends on the following libraries:
-- tensorflow (the CPU version is sufficient)
-- numpy
-- scipy
-- opencv
-- matplotlib
-- jupyter
+Les images sont trop grosses pour etre directement telecharger sur Github (limite > 100Mb)
 
 ## Comment debuter
 1) Clone this GitHub repository on your computer:
