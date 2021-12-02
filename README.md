@@ -1,6 +1,6 @@
 # Optical coherence refraction tomography
 
-*Reproduction de la methode OCRT pour le projet de 4eme annee de baccalaureat Polytechnique Montreal.*
+*Reproduction de la methode OCRT pour le projet de 4eme annee de baccalaureat: GBM8970 - Projet intégrateur de génie biomédical. Polytechnique Montreal.*
 * **Papier original**: https://www.nature.com/articles/s41566-019-0508-1
 * **Nature Supplementary Materials**: [PDF](https://static-content.springer.com/esm/art%3A10.1038%2Fs41566-019-0508-1/MediaObjects/41566_2019_508_MOESM1_ESM.pdf)
 * **Code original**: https://github.com/kevinczhou/optical-coherence-refraction-tomography
@@ -45,5 +45,11 @@ OPTIONAL ARGUMENTS:
   -o O        Path where figures will be saved. By default, they will be saved in the current directory.
   -l          manually find borders of capillary
 ```
+## Livrables
+* Document de spécifications
+  [GBM8970-P5OCT.SpecFonc](data/GBM8970-P5OCT.SpecFonc.pdf)
+* Document de design
+[GBM8970-P5OCT.Design](data/GBM8970-P5OCT.Design.pdf)
+
 ## Description algorithme
 ![alt text](data/description_algorithme.PNG)
