@@ -6,7 +6,7 @@
 * **Code original**: https://github.com/kevinczhou/optical-coherence-refraction-tomography
 
 ## Description algorithme
-![alt text](description_algorithme.PNG)
+![alt text](data/description_algorithme.PNG)
 
 ## Data
 Les images de test peuvent etre trouve dans le dossier: "/data"
