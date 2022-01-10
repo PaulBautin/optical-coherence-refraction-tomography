@@ -16,6 +16,8 @@ import nibabel as nib
 import matplotlib.pyplot as plt
 import numpy as np
 from skimage.transform import PiecewiseAffineTransform, warp
+import scipy.io
+from skimage.transform import radon, rescale, iradon
 
 
 def get_parser():
@@ -253,6 +255,37 @@ def onclick(event):
     print('position interface, xdata={}, ydata={}'.format(event.xdata, event.ydata))
 
 
+def radon_f(b_scans):
+    # Variable comprenant les angles des B-scans (pris dans l'article original 1 B-scan par 6 deg sur 360 deg)
+    theta = np.linspace(0, 360, len(b_scans))
+
+    # Afficher l'image pour l'angle 0
+    plt.title("B-scan pour angle 0")
+    plt.imshow(b_scans[0])
+    plt.show()
+
+    # Évaluer la projection pour l'angle 0 pour initialiser la variable projection
+    projections = radon(b_scans[0], [0])
+    # Empiler les projections pour chaque angle pour créer le sinogramme
+    for i in range(len(b_scans)-1):
+        projections = np.hstack((projections, radon(b_scans[i+1], [0])))
+    print("les dimensions du sinogramme sont:  ".format(projections.shape))
+
+    # Afficher le sinogramme
+    plt.title("Radon transform\n(Sinogram)")
+    plt.xlabel("Projection axis")
+    plt.ylabel("Intensity")
+    plt.imshow(projections)
+    plt.show()
+
+    # Transformee de radon inverse avec un filtre de hanning
+    reconstruction = iradon(projections, theta,  filter_name='ramp', interpolation='cubic')
+    # Afficher le resultat de la transformeee de radon inverse
+    plt.title("Reconstruction\nfrom sinogram")
+    plt.imshow(reconstruction, cmap=plt.cm.Greys_r)
+    plt.show()
+
+
 def main():
     """
     Fonction main,
@@ -265,17 +298,29 @@ def main():
 
     # get image (z: axe de propagation laser, y: axe de rotation capillaire, x: axe perpendiculaire
     # a la rotation capillaire)
-    filename = "data_test_oct_1degree.nii"
-    path_image = os.path.join(path_data, filename)
+    filename, file_extension = os.path.splitext("insect_leg_data.mat")
+    path_image = os.path.join(path_data, filename + file_extension)
     print("L'image est prise dans le fichier {}".format(path_image))
-    image = nib.load(path_image)
-    nx, ny, nz = image.shape
-    print("Le format de l'image est (x:{}, y:{}, z:{})".format(nx, ny, nz))
+    # Les images sur le Github du papier original sont en format Matlab (extension: .mat), il faut donc les transformer
+    if file_extension == ".mat":
+        mat = scipy.io.loadmat(path_image)
+        print(mat.keys())
+        nz, ny = mat['Bscan_dims'][0][0], mat['Bscan_dims'][0][1]
+        print(len(mat["xzcoords"]))
+        print(nz)
+        print(ny)
+        b_scans = mat["Bscans"]
+        b_scan = b_scans[0]
+    else:
+        image = nib.load(path_image)
+        nx, ny, nz = image.shape
+        print("Le format de l'image est (x:{}, y:{}, z:{})".format(nx, ny, nz))
+        # extraire un b_scan avec plan 'zy'
+        data = image.get_fdata()
+        x_tube = 310
+        b_scan = data[:, x_tube, :]
 
-    # extraire un b_scan avec plan 'zy'
-    data = image.get_fdata()
-    x_tube = 310
-    b_scan = data[:, x_tube, :]
+    radon_f(b_scans)
 
     # creation de la carte des indices de refraction a partir de la geometrie du tube
     # geometrie tube fabricant:  Longueur : 75 mm. Diamètre intérieur : 1,1 à 1,2 mm. Paroi : 0,2 mm ± 0,02 mm
